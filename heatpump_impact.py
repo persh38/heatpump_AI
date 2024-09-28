@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
 # Constants
 BALANCE_TEMPERATURE = 15  # Assumed balance point temperature in degrees Celsius
@@ -9,6 +10,22 @@ AIR_DENSITY = 1.2  # kg/m³, approximate density of air
 SPECIFIC_HEAT_CAPACITY_DRY_AIR = 1005  # J/kg·K for dry air
 LATENT_HEAT_VAPORIZATION = 2500 * 1e3  # Latent heat of condensation in J/kg
 SPECIFIC_HEAT_WATER_VAPOR = 1860  # J/kg·K
+
+
+def clean_column_names(dataframe):
+    """
+    Removes the string 'MONT-SUR-ROLLE -' from all column names in the DataFrame.
+
+    Parameters:
+    - dataframe: The DataFrame to clean column names for.
+
+    Returns:
+    - dataframe: The DataFrame with updated column names.
+    """
+    # dataframe.columns = dataframe.columns.str.replace('MONT-SUR-ROLLE -', '').str.strip()
+    dataframe = dataframe.rename(columns={'MONT-SUR-ROLLE - Humidité moy. (%)': 'RH', 'MONT-SUR-ROLLE - Température moy. +2 m (°C)': 'Temperature'})
+    return dataframe
+
 
 # Function to calculate humidity ratio X
 def calculate_humidity_ratio(temperature, rh):
@@ -43,7 +60,8 @@ def calculate_dew_point(temperature, rh):
     return dew_point
 
 # Read CSV file containing temperature and RH data
-df = pd.read_csv('data/Meteo_MSR .csv')  # Modify to your file path
+outside_site_data = pd.read_csv('data/Meteo_MSR .csv')  # Modify to your file path
+df = clean_column_names(outside_site_data)
 df['Humidity_Ratio'] = df.apply(lambda row: calculate_humidity_ratio(row['Temperature'], row['RH']), axis=1)
 df['Specific_Heat_Moist_Air'] = df['Humidity_Ratio'].apply(calculate_specific_heat_moist_air)
 
@@ -64,8 +82,20 @@ df['Condensation'] = df['Temperature'] - df['Temperature_Drop'] < df['Dew_Point'
 df['Latent_Heat_Condensation'] = df.apply(lambda row: LATENT_HEAT_VAPORIZATION * row['Humidity_Ratio'] if row['Condensation'] else 0, axis=1)
 df['Adjusted_Temperature_Drop'] = df.apply(lambda row: calculate_temperature_drop(row['Heat_Extracted_kWh'] + row['Latent_Heat_Condensation'], AIRFLOW_RATE, AIR_DENSITY, row['Specific_Heat_Moist_Air']), axis=1)
 
-# Output the results
-import ace_tools as tools; tools.display_dataframe_to_user(name="Heat Pump Impact Analysis", dataframe=df)
-
 # Save to a CSV if needed
 df.to_csv('heat_pump_impact_results.csv', index=False)
+
+# Plotting the results
+plt.figure(figsize=(10, 6))
+plt.plot(df['Date'], df['Temperature_Drop'], label='Temperature Drop')
+plt.plot(df['Date'], df['Adjusted_Temperature_Drop'], label='Adjusted Temperature Drop (Condensation)', linestyle='--')
+
+plt.xlabel('Date')
+plt.ylabel('Temperature Drop (°C)')
+plt.title('Daily Temperature Drop of Air Exhausted by Heat Pump')
+plt.xticks(rotation=45)
+plt.legend()
+plt.tight_layout()
+
+# Display the plot
+plt.show()
