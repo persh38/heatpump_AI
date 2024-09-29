@@ -53,7 +53,7 @@ df = df_meteo.rename(columns={
     'MONT-SUR-ROLLE - Humidité moy. (%)': 'RH',
     'MONT-SUR-ROLLE - Température moy. +2 m (°C)': 'Temperature'
 })
-
+# df['RH'] = 0
 # Calculate humidity ratio and specific heat
 df['Humidity_Ratio'] = df.apply(lambda row: calculate_humidity_ratio(row['Temperature'], row['RH']), axis=1)
 df['Specific_Heat_Moist_Air'] = df['Humidity_Ratio'].apply(calculate_specific_heat_moist_air)
