@@ -145,6 +145,7 @@ df['Condensed_Water_Liters_per_hour'] = df['Condensed_Water_kg_per_day']/24
 # Save to a CSV if needed
 df.to_csv('heat_pump_impact_with_condensation_results.csv', index=False)
 
+OPERATING_HOURS_PER_DAY = 24
 def plot_results_with_rh(dates, exiting_temps, condensed_water, outside_temps, outside_rh):
     """
         Plots the exiting air temperature and condensed water over time with relative humidity for comparison.
@@ -201,5 +202,36 @@ def plot_results_with_rh(dates, exiting_temps, condensed_water, outside_temps, o
     plt.show()
 
 
+def plot_condensation_histogram(condensed_water_per_hour):
+    """
+        Plots a histogram showing the distribution of daily condensed water production in liters per hour.
+
+        Parameters:
+        - condensed_water_per_hour (list): List of condensed water production per hour for each day.
+
+        Returns:
+        - None
+        """
+
+    plt.figure(figsize=(8, 6))
+
+    # Create a histogram with bin width of 1 liter
+    plt.hist(condensed_water_per_hour, bins=range(0, int(max(condensed_water_per_hour)) + 2), edgecolor='black',
+             align='left')
+
+    # Add labels and title
+    plt.xlabel('Eau Condensé (litres/heure)')
+    plt.ylabel('Nombres de jours')
+    plt.title("Nombres de jours par Production d'Eau condenseé (liters/hour)")
+
+    plt.grid(True)
+    plt.show()
+
+
 plot_results_with_rh(df['Date'], df['Temperature_After_Adjusted_Drop'], df['Condensed_Water_Liters_per_hour'], df['Temperature']
                  ,df['RH'])
+
+condensed_water = df['Condensed_Water_Liters_per_hour']
+plot_condensation_histogram(condensed_water)
+print(
+    f"Somme total d'eau condensê pour periode de chaufage {sum(condensed_water) * OPERATING_HOURS_PER_DAY:.0f} Litres")
