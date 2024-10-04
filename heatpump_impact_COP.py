@@ -1,9 +1,11 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 
 # Constants
 DESIRED_INDOOR_TEMPERATURE = 21  # degrees Celsius
-COP = 4.0  # Coefficient of Performance of the heat pump
+COP = 3.0  # Coefficient of Performance of the heat pump
 AIRFLOW_RATE = 3000 / 3600  # m³/h converted to m³/s
 AIR_DENSITY = 1.2  # kg/m³
 SPECIFIC_HEAT_CAPACITY_DRY_AIR = 1005  # J/kg·K
@@ -14,7 +16,7 @@ SPECIFIC_HEAT_WATER_VAPOR = 1860  # J/kg·K
 def calculate_humidity_ratio(temperature, rh):
     # Saturation vapor pressure at temperature (approximation using Tetens formula)
     p_sat = 0.6108 * np.exp((17.27 * temperature) / (temperature + 237.3))  # in kPa
-    p_vapor = (rh / 100.0) * p_sat  # Vapor pressure in kPa
+    p_vapor = (rh / 100) * p_sat  # Vapor pressure in kPa
     X = 0.622 * p_vapor / (101.3 - p_vapor)  # Humidity ratio (kg water/kg dry air)
     return X
 
@@ -52,7 +54,11 @@ def calculate_adjusted_temperature_drop(heat_extracted_kwh, latent_heat_joules, 
     return delta_t
 
 # Read CSV file containing temperature and RH data
-df = pd.read_csv('temperature_rh_data.csv')  # Modify to your file path
+df_meteo = pd.read_csv('data/Meteo_MSR.csv')
+df = df_meteo.rename(columns={
+    'MONT-SUR-ROLLE - Humidité moy. (%)': 'RH',
+    'MONT-SUR-ROLLE - Température moy. +2 m (°C)': 'Temperature'
+})
 
 # Calculate humidity ratio and specific heat
 df['Humidity_Ratio'] = df.apply(
@@ -61,7 +67,7 @@ df['Humidity_Ratio'] = df.apply(
 df['Specific_Heat_Moist_Air'] = df['Humidity_Ratio'].apply(calculate_specific_heat_moist_air)
 
 # Assuming total heating energy for the season (in kWh)
-total_heating_energy_kwh = 20000  # Total heating demand for the season
+total_heating_energy_kwh = 19000  # Total heating demand for the season
 
 # Calculate the temperature difference for each day (Indoor temperature - Outdoor temperature)
 df['Temperature_Difference'] = DESIRED_INDOOR_TEMPERATURE - df['Temperature']
@@ -146,5 +152,105 @@ df['Temperature_After_Adjusted_Drop'] = df['Temperature'] - df['Adjusted_Tempera
 # import ace_tools as tools
 # tools.display_dataframe_to_user(name="Heat Pump Impact Analysis with COP Included", dataframe=df)
 
+
+OPERATING_HOURS_PER_DAY = 24
+df['Condensed_Water_Liters_per_hour'] = df['Condensed_Water_kg_per_day']/OPERATING_HOURS_PER_DAY
 # Save to a CSV if needed
 df.to_csv('heat_pump_impact_with_cop_results.csv', index=False)
+print(df.head())  # To print the first few rows of the DataFrame
+
+OPERATING_HOURS_PER_DAY = 24
+def plot_results_with_rh(dates, exiting_temps, condensed_water, outside_temps, outside_rh):
+    """
+        Plots the exiting air temperature and condensed water over time with relative humidity for comparison.
+
+        Parameters:
+        - dates (pd.Series): Series of dates.
+        - exiting_temps (list): List of exiting air temperatures.
+        - condensed_water (list): List of condensed water amounts.
+        - outside_temps (pd.Series): Series of outside temperatures.
+        - outside_rh (pd.Series): Series of relative humidity percentages.
+
+        Returns:
+        - None
+        """
+    dates = pd.to_datetime(dates, format='%d.%m.%Y')
+
+    plt.figure(figsize=(12, 6))
+
+    # Plot Exiting Air Temperature and Outside Temperature
+    plt.subplot(2, 1, 1)
+    plt.plot(dates, exiting_temps, label="Temp Air PAC(°C)", color='r')
+    plt.plot(dates, outside_temps, label="Temp d'Air(°C)", color='g', linestyle='--')
+    plt.xlabel("Date")
+    plt.ylabel("Temperature (°C)")
+    plt.title("Temperature d'air PAC et Temperature d'air pour saison de chauffage 2023-2024. Code géneré par chatGPT o1-preview")
+    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%b'))
+    plt.gca().xaxis.set_major_locator(mdates.MonthLocator())
+    plt.grid(True)
+    plt.legend()
+
+    # Plot Condensed Water with RH on Twin Axes
+    ax1 = plt.subplot(2, 1, 2)
+    ax1.plot(dates, condensed_water, label="Eau condensé  (litres/h)", color='b')
+    ax1.set_xlabel("Date")
+    ax1.set_ylabel("Eau condensé (litres/heure)")
+
+    # Set x-axis to show month names
+    ax1.xaxis.set_major_formatter(mdates.DateFormatter('%b'))
+    ax1.xaxis.set_major_locator(mdates.MonthLocator())
+    ax1.grid(True)
+
+    # Create a second y-axis for RH
+    ax2 = ax1.twinx()
+    ax2.plot(dates, outside_rh, label="Humidité Relative (%)", color='orange', linestyle='--')
+    ax2.set_ylabel("Humidité Relative  (%)")
+
+    # Combine legends
+    ax1.legend(loc="upper left")
+    ax2.legend(loc="upper right")
+
+    plt.title("Production d'eau condensé et Humidité Relative pour saison de chauffage 2023-2024  Code géneré par chatGPT o1-preview")
+
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_condensation_histogram(condensed_water_per_hour):
+    """
+    Plots a histogram showing the distribution of daily condensed water production in liters per hour.
+
+    Parameters:
+    - condensed_water_per_hour (list): List of condensed water production per hour for each day.
+
+    Returns:
+    - None
+    """
+    total_condensed_water = sum(condensed_water_per_hour)* OPERATING_HOURS_PER_DAY
+
+    plt.figure(figsize=(8, 6))
+
+    # Create a histogram with bin width of 1 liter
+    plt.hist(condensed_water_per_hour, bins=range(0, int(max(condensed_water_per_hour)) + 2),
+             edgecolor='black', align='left')
+
+    # Add labels and title
+    plt.xlabel('Eau Condensé (litres/heure)')
+    plt.ylabel('Nombres de jours')
+    plt.title("Nombres de jours par Production d'Eau condenseé (liters/hour)")
+
+    # Add text to display total condensed water per year
+    plt.text(0.95, 0.95, f"Eau condensê pour periode de chaufage : {total_condensed_water:.0f} liters",
+             horizontalalignment='right', verticalalignment='top',
+             transform=plt.gca().transAxes, fontsize=10, color='blue')
+
+    plt.grid(True)
+    plt.show()
+
+plot_results_with_rh(df['Date'], df['Temperature_After_Adjusted_Drop'], df['Condensed_Water_Liters_per_hour'], df['Temperature']
+                 ,df['RH'])
+
+condensed_water = df['Condensed_Water_Liters_per_hour']
+plot_condensation_histogram(condensed_water)
+print(
+    f"Somme total d'eau condensê pour periode de chaufage {sum(condensed_water) * OPERATING_HOURS_PER_DAY:.0f} Litres")
