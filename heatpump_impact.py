@@ -204,29 +204,34 @@ def plot_results_with_rh(dates, exiting_temps, condensed_water, outside_temps, o
 
 def plot_condensation_histogram(condensed_water_per_hour):
     """
-        Plots a histogram showing the distribution of daily condensed water production in liters per hour.
+    Plots a histogram showing the distribution of daily condensed water production in liters per hour.
 
-        Parameters:
-        - condensed_water_per_hour (list): List of condensed water production per hour for each day.
+    Parameters:
+    - condensed_water_per_hour (list): List of condensed water production per hour for each day.
 
-        Returns:
-        - None
-        """
+    Returns:
+    - None
+    """
+    total_condensed_water = sum(condensed_water_per_hour)* OPERATING_HOURS_PER_DAY
 
     plt.figure(figsize=(8, 6))
 
     # Create a histogram with bin width of 1 liter
-    plt.hist(condensed_water_per_hour, bins=range(0, int(max(condensed_water_per_hour)) + 2), edgecolor='black',
-             align='left')
+    plt.hist(condensed_water_per_hour, bins=range(0, int(max(condensed_water_per_hour)) + 2),
+             edgecolor='black', align='left')
 
     # Add labels and title
     plt.xlabel('Eau Condensé (litres/heure)')
     plt.ylabel('Nombres de jours')
     plt.title("Nombres de jours par Production d'Eau condenseé (liters/hour)")
 
+    # Add text to display total condensed water per year
+    plt.text(0.95, 0.95, f"Eau condensê pour periode de chaufage : {total_condensed_water:.0f} liters",
+             horizontalalignment='right', verticalalignment='top',
+             transform=plt.gca().transAxes, fontsize=10, color='blue')
+
     plt.grid(True)
     plt.show()
-
 
 plot_results_with_rh(df['Date'], df['Temperature_After_Adjusted_Drop'], df['Condensed_Water_Liters_per_hour'], df['Temperature']
                  ,df['RH'])
