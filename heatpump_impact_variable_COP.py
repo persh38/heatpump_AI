@@ -232,6 +232,32 @@ def plot_results_with_rh(dates, exiting_temps, condensed_water, outside_temps, o
     plt.title("Production d'eau condensé et Humidité Relative pour saison de chauffage 2023-2024  Code géneré par chatGPT o1-preview")
 
     plt.tight_layout()
+    # Plot Condensed Water with RH on Twin Axes
+    ax1 = plt.subplot(2, 1, 2)
+    ax1.plot(dates, condensed_water, label="Eau condensé  (litres/h)", color='b')
+    ax1.set_xlabel("Date")
+    ax1.set_ylabel("Eau condensé (litres/heure)")
+
+    # Set x-axis to show month names
+    ax1.xaxis.set_major_formatter(mdates.DateFormatter('%b'))
+    ax1.xaxis.set_major_locator(mdates.MonthLocator())
+    ax1.grid(True)
+
+    # Create a second y-axis for RH
+    ax2 = ax1.twinx()
+    ax2.plot(dates, outside_rh, label="Humidité Relative (%)", color='orange', linestyle='--')
+    ax2.set_ylabel("Humidité Relative  (%)")
+
+    # Combine legends
+    ax1.legend(loc="upper left")
+    ax2.legend(loc="upper right")
+
+    plt.title(
+        "Production d'eau condensé et Humidité Relative pour saison de chauffage 2023-2024  Code géneré par chatGPT o1-preview")
+
+    plt.tight_layout()
+
+
     plt.show()
 
 
