@@ -131,22 +131,37 @@ def plot_results_with_rh(dates, exiting_temps, condensed_water, outside_temps, o
     plt.tight_layout()
     plt.show()
 
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+
 def plot_condensation_histogram(condensed_water_per_hour):
     """
     Plot a histogram of the daily condensed water production in liters per hour.
+    Excludes days with 0 liters of condensation and adds space between the bins.
     """
-    total_condensed_water = sum(condensed_water_per_hour) * OPERATING_HOURS_PER_DAY
+    # Exclude days with 0 condensed water
+    condensed_water_nonzero = [x for x in condensed_water_per_hour if x > 0]
+    total_condensed_water = sum(condensed_water_nonzero) * OPERATING_HOURS_PER_DAY
+    total_days = len(condensed_water_nonzero)
 
     plt.figure(figsize=(8, 6))
 
-    # Create a histogram with bin width of 1 liter
-    plt.hist(condensed_water_per_hour, bins=range(0, int(max(condensed_water_per_hour)) + 2),
-             edgecolor='black', align='left')
+    # Define the bin edges
+    bins = np.arange(0.5, int(max(condensed_water_nonzero)) + 1.5, 1)
+
+    # Count occurrences in each bin
+    counts, bin_edges = np.histogram(condensed_water_nonzero, bins=bins)
+
+    # Create bar chart with space between the bars
+    bin_centers = bin_edges[:-1] + 0.5  # Centers of the bins
+    plt.bar(bin_centers, counts, width=0.6, edgecolor='black')
 
     # Add labels and title
     plt.xlabel('Eau Condensée (litres/heure)')
     plt.ylabel('Nombre de jours')
-    plt.title("Nombre de jours par production d'eau condensée (litres/heure)")
+    plt.title(f"Nombre de jours par production d'eau condensée (litres/heure) \nJournés avec Condensation. Total: {total_days}")
 
     # Add text to display total condensed water for the heating period
     plt.text(0.95, 0.95, f"Eau condensée pour la période de chauffage : {total_condensed_water:.0f} litres",
@@ -155,6 +170,7 @@ def plot_condensation_histogram(condensed_water_per_hour):
 
     plt.grid(True)
     plt.show()
+
 
 def main():
     """
@@ -208,7 +224,7 @@ def main():
 
     # Calculate the heat extracted from the air per day
     df['Heat_Extracted_From_Air_kWh'] = (
-        df['Heating_Energy_Demand_kWh'] - df['Electrical_Energy_Input_kWh']
+        df['Heating_Energy_Demand_kWh'] - df['Electrical_Energy_Input_kWh'] * .9    # Assume 10% loss to non heating
     )
 
     # Calculate temperature drop per day (before accounting for latent heat)
