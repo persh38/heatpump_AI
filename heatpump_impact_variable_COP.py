@@ -1,8 +1,8 @@
 import pandas as pd
-import numpy as np
 from scipy.interpolate import interp1d
-import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
+import numpy as np
 
 # Constants
 DESIRED_INDOOR_TEMPERATURE = 21  # degrees Celsius
@@ -70,29 +70,29 @@ def calculate_adjusted_temperature_drop(heat_extracted_kwh, latent_heat_joules, 
 def plot_results_with_rh(dates, exiting_temps, condensed_water, outside_temps, outside_rh, electricity, cop):
     """
     Plot the exiting air temperature, condensed water, outside temperature, relative humidity,
-    electricity consumption, and COP over time.
+    electricity consumption, and COP over time on separate figures.
     """
     dates = pd.to_datetime(dates, format='%d.%m.%Y')
 
-    plt.figure(figsize=(12, 9))
-
-    # Plot Exiting Air Temperature and Outside Temperature
-    plt.subplot(3, 1, 1)
+    # First Plot: Exiting Air Temperature and Outside Temperature
+    plt.figure(figsize=(10, 6))
     plt.plot(dates, exiting_temps, label="Temp Air PAC (°C)", color='r')
     plt.plot(dates, outside_temps, label="Temp d'Air (°C)", color='g', linestyle='--')
     plt.xlabel("Date")
     plt.ylabel("Temperature (°C)")
-    plt.title("Température de l'air PAC et Température de l'air pour la saison de chauffage")
+    plt.title("Température de l'air exit PAC et Température de l'air pour la saison de chauffage")
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%b'))
     plt.gca().xaxis.set_major_locator(mdates.MonthLocator())
     plt.grid(True)
     plt.legend()
+    plt.tight_layout()
+    plt.show()
 
-    # Plot Condensed Water with RH on Twin Axes
-    ax1 = plt.subplot(3, 1, 2)
+    # Second Plot: Condensed Water with RH on Twin Axes
+    fig, ax1 = plt.subplots(figsize=(10, 6))
     ax1.plot(dates, condensed_water, label="Eau condensée (litres/h)", color='b')
     ax1.set_xlabel("Date")
-    ax1.set_ylabel("Eau condensée (litres/heure)")
+    ax1.set_ylabel("Eau condensée (litres/heure)", color='b')
     ax1.xaxis.set_major_formatter(mdates.DateFormatter('%b'))
     ax1.xaxis.set_major_locator(mdates.MonthLocator())
     ax1.grid(True)
@@ -100,40 +100,39 @@ def plot_results_with_rh(dates, exiting_temps, condensed_water, outside_temps, o
     # Create a second y-axis for RH
     ax2 = ax1.twinx()
     ax2.plot(dates, outside_rh, label="Humidité Relative (%)", color='orange', linestyle='--')
-    ax2.set_ylabel("Humidité Relative (%)")
+    ax2.set_ylabel("Humidité Relative (%)", color='orange')
 
     # Combine legends
-    ax1.legend(loc="upper left")
-    ax2.legend(loc="upper right")
+    lines_1, labels_1 = ax1.get_legend_handles_labels()
+    lines_2, labels_2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc='upper left')
 
     plt.title("Production d'eau condensée et Humidité Relative pour la saison de chauffage")
+    plt.tight_layout()
+    plt.show()
 
-    # Plot Electricity Consumption and COP
-    ax1 = plt.subplot(3, 1, 3)
+    # Third Plot: Electricity Consumption and temp Air
+    fig, ax1 = plt.subplots(figsize=(10, 6))
     ax1.plot(dates, electricity, label="Consommation Électrique (kWh)", color='b')
     ax1.set_xlabel("Date")
-    ax1.set_ylabel("Consommation Électrique (kWh)")
+    ax1.set_ylabel("Consommation Électrique (kWh)", color='b')
     ax1.xaxis.set_major_formatter(mdates.DateFormatter('%b'))
     ax1.xaxis.set_major_locator(mdates.MonthLocator())
     ax1.grid(True)
 
     # Create a second y-axis for COP
     ax2 = ax1.twinx()
-    ax2.plot(dates, cop, label="COP", color='r')
-    ax2.set_ylabel("COP")
+    ax2.plot(dates, outside_temps, label="Temp d'Air (°C)", color='y', linestyle='--')
+    ax2.set_ylabel("Temp d'Air (°C)", color='g')
 
     # Combine legends
-    ax1.legend(loc="upper left")
-    ax2.legend(loc="upper right")
+    lines_1, labels_1 = ax1.get_legend_handles_labels()
+    lines_2, labels_2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc='upper left')
 
-    plt.title("Consommation d'électricité et COP pour la saison de chauffage")
-
+    plt.title("Consommation d'électricité et Temp d'Air pour la saison de chauffage")
     plt.tight_layout()
     plt.show()
-
-
-import matplotlib.pyplot as plt
-import numpy as np
 
 
 def plot_condensation_histogram(condensed_water_per_hour):
@@ -170,6 +169,62 @@ def plot_condensation_histogram(condensed_water_per_hour):
 
     plt.grid(True)
     plt.show()
+
+def plot_scatter_vs_temperature(
+    df,
+    y_column,
+    y_label,
+    title,
+    color,
+    label,
+    y2_column=None,
+    y2_label=None,
+    y2_color='red',
+    y2_label_in_legend=None
+):
+    """
+    Plots a scatter plot of the specified y_column against temperature.
+    Optionally plots a second y_column on a secondary y-axis.
+
+    Parameters:
+    - df: DataFrame containing the data.
+    - y_column: The column name in df for the y-axis data.
+    - y_label: Label for the y-axis.
+    - title: Title of the plot.
+    - color: Color of the scatter points.
+    - label: Label for the data series (used in the legend).
+    - y2_column: (Optional) The column name for the second y-axis data.
+    - y2_label: (Optional) Label for the second y-axis.
+    - y2_color: (Optional) Color for the second scatter points.
+    - y2_label_in_legend: (Optional) Label for the second data series.
+    """
+    fig, ax1 = plt.subplots(figsize=(10, 6))
+
+    # Plot the first scatter plot
+    ax1.scatter(df['Temperature'], df[y_column], color=color, label=label)
+    ax1.set_xlabel('Température Extérieure (°C)')
+    ax1.set_ylabel(y_label, color=color)
+    ax1.tick_params(axis='y', labelcolor=color)
+    ax1.grid(True)
+
+    if y2_column is not None:
+        # Create a secondary y-axis
+        ax2 = ax1.twinx()
+        ax2.scatter(df['Temperature'], df[y2_column], color=y2_color, label=y2_label_in_legend)
+        ax2.set_ylabel(y2_label, color=y2_color)
+        ax2.tick_params(axis='y', labelcolor=y2_color)
+
+        # Combine legends from both axes
+        lines_1, labels_1 = ax1.get_legend_handles_labels()
+        lines_2, labels_2 = ax2.get_legend_handles_labels()
+        ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc='upper center')
+    else:
+        # Only one legend needed
+        ax1.legend(loc='upper left')
+
+    plt.title(title)
+    plt.show()
+
 
 
 def main():
@@ -336,30 +391,30 @@ def main():
 
     plot_condensation_histogram(df['Condensed_Water_Liters_per_hour'])
 
-    # Plot COP vs. Outdoor Temperature
-    plt.figure(figsize=(10, 6))
-    plt.scatter(df['Temperature'], df['COP'], color='blue', label='COP')
-    plt.xlabel('Température Extérieure (°C)')
-    plt.ylabel('COP')
-    plt.title('COP en fonction de la Température Extérieure')
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+    plot_scatter_vs_temperature(
+        df=df,
+        y_column='COP',
+        y_label='COP',
+        title='COP en fonction de la Température Extérieure',
+        color='blue',
+        label='COP'
+    )
 
     # Plot Heat Extracted From Air vs. Outdoor Temperature
-    plt.figure(figsize=(10, 6))
-    plt.scatter(
-        df['Temperature'],
-        df['Heat_Extracted_From_Air_kWh'],
-        color='green',
-        label='Chaleur Extraite de l\'Air (kWh)'
-    )
-    plt.xlabel('Température Extérieure (°C)')
-    plt.ylabel('Chaleur Extraite de l\'Air (kWh)')
-    plt.title('Chaleur Extraite de l\'Air en fonction de la Température Extérieure')
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+    plot_scatter_vs_temperature(
+        df=df,
+        y_column='Electrical_Energy_Input_kWh',
+        y_label='Electrical_Energy_Input_kWh',
+        color='r',
+        label='Electrical_Energy_Input_kWh',
+        y2_column='Heat_Extracted_From_Air_kWh',
+        y2_label='Chaleur Extraite de l\'Air (kWh)',
+        title='Chaleur Extraite de l\'Air en fonction de la Température Extérieure',
+        y2_color='green',
+        y2_label_in_legend='Chaleur Extraite de l\'Air (kWh)',
+        )
+
+
 
 if __name__ == "__main__":
     main()
