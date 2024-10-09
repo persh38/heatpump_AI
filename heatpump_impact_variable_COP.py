@@ -80,7 +80,7 @@ def plot_results_with_rh(dates, exiting_temps, condensed_water, outside_temps, o
     plt.plot(dates, outside_temps, label="Temp d'Air (°C)", color='g', linestyle='--')
     plt.xlabel("Date")
     plt.ylabel("Temperature (°C)")
-    plt.title("Température de l'air exit PAC et Température de l'air pour la saison de chauffage")
+    plt.title("Température de l'Air sortant du PAC et Température de l'Air pour la saison de chauffage")
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%b'))
     plt.gca().xaxis.set_major_locator(mdates.MonthLocator())
     plt.grid(True)
@@ -130,7 +130,7 @@ def plot_results_with_rh(dates, exiting_temps, condensed_water, outside_temps, o
     lines_2, labels_2 = ax2.get_legend_handles_labels()
     ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc='upper left')
 
-    plt.title("Consommation d'électricité et Temp d'Air pour la saison de chauffage")
+    plt.title("Consommation d'Electricité et Température d'Air pour la Saison de Chauffage")
     plt.tight_layout()
     plt.show()
 
@@ -198,7 +198,10 @@ def plot_scatter_vs_temperature(
     label,
     y2_column=None,
     y2_color='red',
-    y2_label_in_legend=None
+    y2_label_in_legend=None,
+    y3_column=None,
+    y3_color='b',
+    y3_label_in_legend=None
 ):
     """
     Plots a scatter plot of the specified y_column against temperature.
@@ -214,6 +217,9 @@ def plot_scatter_vs_temperature(
     # Plot the second scatter plot on the same axis if provided
     if y2_column is not None:
         ax1.scatter(df['Temperature'], df[y2_column], color=y2_color, label=y2_label_in_legend)
+
+    if y3_column is not None:
+        ax1.scatter(df['Temperature'], df[y3_column], color=y3_color, label=y3_label_in_legend)
 
     ax1.set_xlabel('Température Extérieure (°C)')
     ax1.set_ylabel(y_label)
@@ -399,6 +405,7 @@ def main():
         label='COP'
     )
 
+
     # Plot Heat Extracted From Air vs. Outdoor Temperature
     plot_scatter_vs_temperature(
         df=df,
@@ -407,9 +414,11 @@ def main():
         color='r',
         label='Electrical_Energy_Input_kWh',
         y2_column='Heat_Extracted_From_Air_kWh',
-        title="Contributions de l'Electricité et de l'Air en fonction de la Température Extérieure",
+        title="Contributions au Chauffage de l'Electricité et de l'Air en fonction de la Température Extérieure",
         y2_color='green',
         y2_label_in_legend='Chaleur Extraite de l\'Air (kWh)',
+        y3_column='Heating_Energy_Demand_kWh',
+        y3_label_in_legend='Chauffage(kWh)',
         )
 
 
