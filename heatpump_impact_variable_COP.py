@@ -135,32 +135,50 @@ def plot_results_with_rh(dates, exiting_temps, condensed_water, outside_temps, o
     plt.show()
 
 
+import matplotlib.pyplot as plt
+import numpy as np
+
 def plot_condensation_histogram(condensed_water_per_hour):
     """
     Plot a histogram of the daily condensed water production in liters per hour.
     Excludes days with 0 liters of condensation and adds space between the bins.
+    Clearly labels the bins to indicate the ranges they represent.
     """
     # Exclude days with 0 condensed water
     condensed_water_nonzero = [x for x in condensed_water_per_hour if x > 0]
     total_condensed_water = sum(condensed_water_nonzero) * OPERATING_HOURS_PER_DAY
     total_days = len(condensed_water_nonzero)
 
-    plt.figure(figsize=(8, 6))
+    plt.figure(figsize=(10, 6))
 
-    # Define the bin edges
-    bins = np.arange(0.5, int(max(condensed_water_nonzero)) + 1.5, 1)
+    # Define the bin edges starting from 0
+    bins = np.arange(0, int(max(condensed_water_nonzero)) + 1.5, 1)
 
     # Count occurrences in each bin
     counts, bin_edges = np.histogram(condensed_water_nonzero, bins=bins)
 
     # Create bar chart with space between the bars
     bin_centers = bin_edges[:-1] + 0.5  # Centers of the bins
-    plt.bar(bin_centers, counts, width=0.6, edgecolor='black')
+    plt.bar(bin_centers, counts, width=0.6, edgecolor='black', color='skyblue')
+
+    # Create labels for the bins
+    bin_labels = []
+    for i in range(len(bin_edges) - 1):
+        lower_edge = bin_edges[i]
+        upper_edge = bin_edges[i+1]
+        if lower_edge == 0:
+            bin_label = "<1"
+        else:
+            bin_label = f"{int(lower_edge)}-{int(upper_edge)}"
+        bin_labels.append(bin_label)
+
+    # Set x-axis ticks and labels
+    plt.xticks(bin_centers, bin_labels)
 
     # Add labels and title
     plt.xlabel('Eau Condensée (litres/heure)')
-    plt.ylabel('Nombre de jours')
-    plt.title(f"Nombre de jours par production d'eau condensée (litres/heure) \nJournés avec Condensation. Total: {total_days}")
+    plt.ylabel('Nombre de jours avec condensation')
+    plt.title(f"Nombre de jours par production d'eau condensée (litres/heure) \nJournées avec Condensation. Total: {total_days}")
 
     # Add text to display total condensed water for the heating period
     plt.text(0.95, 0.95, f"Eau condensée pour la période de chauffage : {total_condensed_water:.0f} litres",
@@ -168,6 +186,7 @@ def plot_condensation_histogram(condensed_water_per_hour):
              transform=plt.gca().transAxes, fontsize=10, color='blue')
 
     plt.grid(True)
+    plt.tight_layout()
     plt.show()
 
 def plot_scatter_vs_temperature(
@@ -178,52 +197,32 @@ def plot_scatter_vs_temperature(
     color,
     label,
     y2_column=None,
-    y2_label=None,
     y2_color='red',
     y2_label_in_legend=None
 ):
     """
     Plots a scatter plot of the specified y_column against temperature.
-    Optionally plots a second y_column on a secondary y-axis.
+    Optionally plots a second y_column on the same y-axis.
 
-    Parameters:
-    - df: DataFrame containing the data.
-    - y_column: The column name in df for the y-axis data.
-    - y_label: Label for the y-axis.
-    - title: Title of the plot.
-    - color: Color of the scatter points.
-    - label: Label for the data series (used in the legend).
-    - y2_column: (Optional) The column name for the second y-axis data.
-    - y2_label: (Optional) Label for the second y-axis.
-    - y2_color: (Optional) Color for the second scatter points.
-    - y2_label_in_legend: (Optional) Label for the second data series.
+    Parameters remain the same.
     """
     fig, ax1 = plt.subplots(figsize=(10, 6))
 
     # Plot the first scatter plot
     ax1.scatter(df['Temperature'], df[y_column], color=color, label=label)
-    ax1.set_xlabel('Température Extérieure (°C)')
-    ax1.set_ylabel(y_label, color=color)
-    ax1.tick_params(axis='y', labelcolor=color)
-    ax1.grid(True)
 
+    # Plot the second scatter plot on the same axis if provided
     if y2_column is not None:
-        # Create a secondary y-axis
-        ax2 = ax1.twinx()
-        ax2.scatter(df['Temperature'], df[y2_column], color=y2_color, label=y2_label_in_legend)
-        ax2.set_ylabel(y2_label, color=y2_color)
-        ax2.tick_params(axis='y', labelcolor=y2_color)
+        ax1.scatter(df['Temperature'], df[y2_column], color=y2_color, label=y2_label_in_legend)
 
-        # Combine legends from both axes
-        lines_1, labels_1 = ax1.get_legend_handles_labels()
-        lines_2, labels_2 = ax2.get_legend_handles_labels()
-        ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc='upper center')
-    else:
-        # Only one legend needed
-        ax1.legend(loc='upper left')
+    ax1.set_xlabel('Température Extérieure (°C)')
+    ax1.set_ylabel(y_label)
+    ax1.legend()
+    ax1.grid(True)
 
     plt.title(title)
     plt.show()
+
 
 
 
@@ -404,12 +403,11 @@ def main():
     plot_scatter_vs_temperature(
         df=df,
         y_column='Electrical_Energy_Input_kWh',
-        y_label='Electrical_Energy_Input_kWh',
+        y_label='Energy_Input_kWh',
         color='r',
         label='Electrical_Energy_Input_kWh',
         y2_column='Heat_Extracted_From_Air_kWh',
-        y2_label='Chaleur Extraite de l\'Air (kWh)',
-        title='Chaleur Extraite de l\'Air en fonction de la Température Extérieure',
+        title="Contributions de l'Electricité et de l'Air en fonction de la Température Extérieure",
         y2_color='green',
         y2_label_in_legend='Chaleur Extraite de l\'Air (kWh)',
         )
