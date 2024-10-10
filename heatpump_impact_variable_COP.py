@@ -241,8 +241,6 @@ def plot_scatter_vs_temperature(
     plt.show()
 
 
-
-
 def main():
     """
     Main function to perform heat pump impact analysis and plot results.
@@ -295,90 +293,107 @@ def main():
 
     # Calculate the heat extracted from the air per day
     df['Heat_Extracted_From_Air_kWh'] = (
-        df['Heating_Energy_Demand_kWh'] - df['Electrical_Energy_Input_kWh'] * .9    # Assume 10% loss to non heating
+        df['Heating_Energy_Demand_kWh'] - df['Electrical_Energy_Input_kWh'] * 0.9  # Assume 10% loss to non-heating
     )
 
-    # Calculate temperature drop per day (before accounting for latent heat)
-    df['Temperature_Drop'] = df.apply(
-        lambda row: calculate_adjusted_temperature_drop(
-            row['Heat_Extracted_From_Air_kWh'],
-            0,
-            AIRFLOW_RATE,
-            AIR_DENSITY,
-            row['Specific_Heat_Moist_Air']
-        ),
-        axis=1
-    )
+    # Initialize columns for iterative calculation
+    # Initialize columns for iterative calculation
+    df['Adjusted_Temperature_Drop'] = 0.0
+    df['Temperature_After_Adjusted_Drop'] = df['Temperature']
+    df['Condensed_Water_kg_per_day'] = 0.0
+    df['Latent_Heat_Released_Joules'] = 0.0
 
-    # Calculate temperature after drop
-    df['Temperature_After_Drop'] = df['Temperature'] - df['Temperature_Drop']
+    # Perform iterative calculation for each day
+    for index, row in df.iterrows():
+        # Initialize variables for iteration
+        temperature = row['Temperature']
+        rh = row['RH']
+        humidity_ratio = row['Humidity_Ratio']
+        specific_heat = row['Specific_Heat_Moist_Air']
+        heat_extracted_kwh = row['Heat_Extracted_From_Air_kWh']
+        mass_flow_rate_dry_air = AIRFLOW_RATE * AIR_DENSITY / (1 + humidity_ratio)
+        total_mass_dry_air_per_day = mass_flow_rate_dry_air * 86400  # seconds in a day
 
-    # Calculate dew point and check for condensation
-    df['Dew_Point'] = df.apply(
-        lambda row: calculate_dew_point(row['Temperature'], row['RH']),
-        axis=1
-    )
-    df['Condensation'] = df['Temperature_After_Drop'] < df['Dew_Point']
+        # Initialize guesses
+        delta_t = 0.1  # Start with a small temperature drop
+        latent_heat_released = 0.0
+        condensed_water_kg_per_day = 0.0
+        convergence_threshold = 0.0001  # Define a small threshold for convergence
+        max_iterations = 100  # Set a maximum number of iterations to prevent infinite loops
+        previous_condensed_water = None
 
-    # Calculate saturated humidity ratio at cooled temperature for days with condensation
-    df['X_saturated'] = df.apply(
-        lambda row: calculate_saturation_humidity_ratio(row['Temperature_After_Drop'])
-        if row['Condensation'] else row['Humidity_Ratio'],
-        axis=1
-    )
+        for iteration in range(max_iterations):
+            # Calculate temperature after drop
+            temperature_after_drop = temperature - delta_t
 
-    # Calculate the difference in humidity ratios (ΔX)
-    df['delta_X'] = df.apply(
-        lambda row: row['Humidity_Ratio'] - row['X_saturated'] if row['Condensation'] else 0,
-        axis=1
-    )
+            # Calculate dew point
+            dew_point = calculate_dew_point(temperature, rh)
 
-    # Calculate mass flow rates
-    mass_flow_rate_moist_air = AIRFLOW_RATE * AIR_DENSITY  # kg/s
+            # Check for condensation
+            condensation = temperature_after_drop < dew_point
 
-    # Calculate mass flow rate of dry air for each day
-    df['Mass_Flow_Rate_Dry_Air'] = (
-        mass_flow_rate_moist_air / (1 + df['Humidity_Ratio'])
-    )  # kg/s
+            # Calculate saturated humidity ratio at cooled temperature
+            if condensation:
+                x_saturated = calculate_saturation_humidity_ratio(temperature_after_drop)
+            else:
+                x_saturated = humidity_ratio
 
-    # Total mass of dry air per day
-    df['Total_Mass_Dry_Air_per_Day'] = df['Mass_Flow_Rate_Dry_Air'] * 86400  # kg/day
+            # Calculate delta_X
+            delta_X = humidity_ratio - x_saturated if condensation else 0
 
-    # Calculate mass of condensed water per day (only when condensation occurs)
-    df['Condensed_Water_kg_per_day'] = df.apply(
-        lambda row: row['Total_Mass_Dry_Air_per_Day'] * row['delta_X']
-        if row['Condensation'] else 0,
-        axis=1
-    )
+            # Calculate condensed water mass
+            new_condensed_water_kg_per_day = total_mass_dry_air_per_day * delta_X if condensation else 0
 
-    # Convert to liters per day (assuming 1 kg of water = 1 liter)
+            # Calculate latent heat released
+            new_latent_heat_released = new_condensed_water_kg_per_day * LATENT_HEAT_VAPORIZATION
+
+            # Recalculate specific heat with updated humidity ratio
+            new_humidity_ratio = humidity_ratio - delta_X if condensation else humidity_ratio
+            specific_heat = calculate_specific_heat_moist_air(new_humidity_ratio)
+
+            # Adjust temperature drop considering latent heat
+            new_delta_t = calculate_adjusted_temperature_drop(
+                heat_extracted_kwh,
+                new_latent_heat_released,
+                AIRFLOW_RATE,
+                AIR_DENSITY,
+                specific_heat
+            )
+
+            # Debug statements
+            # print(f"Day {index}, Iteration {iteration}")
+            # print(f"Temperature: {temperature}")
+            # print(f"Delta T: {delta_t}")
+            # print(f"Temperature After Drop: {temperature_after_drop}")
+            # print(f"Dew Point: {dew_point}")
+            # print(f"Condensation Occurs: {condensation}")
+            # print(f"Condensed Water (kg/day): {new_condensed_water_kg_per_day}")
+            # print(f"Latent Heat Released (J): {new_latent_heat_released}\n")
+
+            # Check for convergence
+            if previous_condensed_water is not None:
+                if abs(new_condensed_water_kg_per_day - previous_condensed_water) < convergence_threshold:
+                    break  # Converged
+
+            previous_condensed_water = new_condensed_water_kg_per_day
+
+            # Update variables for next iteration
+            delta_t = new_delta_t
+            latent_heat_released = new_latent_heat_released
+            condensed_water_kg_per_day = new_condensed_water_kg_per_day
+
+        # Update the DataFrame with converged values
+        df.at[index, 'Adjusted_Temperature_Drop'] = delta_t
+        df.at[index, 'Temperature_After_Adjusted_Drop'] = temperature_after_drop
+        df.at[index, 'Condensed_Water_kg_per_day'] = condensed_water_kg_per_day
+        df.at[index, 'Latent_Heat_Released_Joules'] = latent_heat_released
+
+    # Convert condensed water to liters per day (assuming 1 kg of water = 1 liter)
     df['Condensed_Water_Liters_per_day'] = df['Condensed_Water_kg_per_day']
 
     # Calculate condensed water per hour
     df['Condensed_Water_Liters_per_hour'] = (
         df['Condensed_Water_Liters_per_day'] / OPERATING_HOURS_PER_DAY
-    )
-
-    # Calculate latent heat released by condensation (in joules)
-    df['Latent_Heat_Released_Joules'] = (
-        df['Condensed_Water_kg_per_day'] * LATENT_HEAT_VAPORIZATION
-    )
-
-    # Recalculate the adjusted temperature drop with latent heat included
-    df['Adjusted_Temperature_Drop'] = df.apply(
-        lambda row: calculate_adjusted_temperature_drop(
-            row['Heat_Extracted_From_Air_kWh'],
-            row['Latent_Heat_Released_Joules'],
-            AIRFLOW_RATE,
-            AIR_DENSITY,
-            row['Specific_Heat_Moist_Air']
-        ),
-        axis=1
-    )
-
-    # Update temperature after drop with adjusted temperature drop
-    df['Temperature_After_Adjusted_Drop'] = (
-        df['Temperature'] - df['Adjusted_Temperature_Drop']
     )
 
     # Save to a CSV if needed
@@ -394,14 +409,12 @@ def main():
         f"Consommation totale d'électricité pour la période de chauffage: {total_electricity_consumption:.0f} kWh"
     )
 
-
+    # Plotting functions
     plot_condensation_histogram(df['Condensed_Water_Liters_per_hour'])
-
 
     plot_time_series(
         df=df,
         date_column='Date',
-        # y1_column='Temperature_After_Drop',
         y1_column='Temperature_After_Adjusted_Drop',
         y1_label="Temp Air PAC (°C)",
         y1_color='r',
@@ -410,9 +423,8 @@ def main():
         y2_label="Température (°C)",
         y2_color='g',
         y2_linestyle='--',
-        # y2_axis_label="Température (°C)",
         title="Température de l'Air sortant du PAC et Température de l'Air pour la saison de chauffage",
-        secondary_y=False  # New parameter
+        secondary_y=False
     )
 
     plot_time_series(
@@ -431,22 +443,6 @@ def main():
         title="Production d'eau condensée et Humidité Relative pour la saison de chauffage"
     )
 
-    # plot_time_series(
-    #     df=df,
-    #     date_column='Date',
-    #     y1_column='Electrical_Energy_Input_kWh',
-    #     y1_label="Consommation Électrique (kWh)",
-    #     y1_color='b',
-    #     y1_linestyle='-',
-    #     y1_axis_label="Consommation Électrique (kWh)",
-    #     y2_column='Temperature',
-    #     y2_label="Temp d'Air (°C)",
-    #     y2_color='g',
-    #     y2_linestyle='--',
-    #     y2_axis_label="Température d'Air (°C)",
-    #     title="Consommation d'Électricité et Température d'Air pour la Saison de Chauffage"
-    # )
-
     plot_scatter_vs_temperature(
         df=df,
         y_column='COP',
@@ -456,23 +452,22 @@ def main():
         label='COP'
     )
 
-
     # Plot Heat Extracted From Air vs. Outdoor Temperature
     plot_scatter_vs_temperature(
         df=df,
         y_column='Electrical_Energy_Input_kWh',
-        y_label='Energy_Input_kWh',
+        y_label='Énergie (kWh)',
         color='r',
-        label='Electrical_Energy_Input_kWh',
+        label='Consommation Électrique (kWh)',
         y2_column='Heat_Extracted_From_Air_kWh',
-        title="Contributions au Chauffage de l'Electricité et de l'Air en fonction de la Température Extérieure",
+        title="Contributions au Chauffage de l'Électricité et de l'Air en fonction de la Température Extérieure",
         y2_color='green',
         y2_label_in_legend='Chaleur Extraite de l\'Air (kWh)',
         y3_column='Heating_Energy_Demand_kWh',
-        y3_label_in_legend='Chauffage(kWh)',
-        )
-
-
+        y3_label_in_legend='Demande de Chauffage (kWh)',
+    )
 
 if __name__ == "__main__":
     main()
+
+
