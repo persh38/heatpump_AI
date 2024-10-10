@@ -67,76 +67,87 @@ def calculate_adjusted_temperature_drop(heat_extracted_kwh, latent_heat_joules, 
     delta_t = net_heat_extracted_joules / (mass_per_day * cp_moist)
     return delta_t
 
-def plot_results_with_rh(dates, exiting_temps, condensed_water, outside_temps, outside_rh, electricity, cop):
+def plot_time_series(
+        df,
+        date_column,
+        y1_column,
+        y1_label,
+        y1_color='b',
+        y1_linestyle='-',
+        y1_axis_label=None,
+        y2_column=None,
+        y2_label=None,
+        y2_color='r',
+        y2_linestyle='--',
+        y2_axis_label=None,
+        title=None,
+        legend_loc='upper left',
+        date_format='%d.%m.%Y',
+        secondary_y=True  # New parameter
+):
     """
-    Plot the exiting air temperature, condensed water, outside temperature, relative humidity,
-    electricity consumption, and COP over time on separate figures.
+    Plots one or two time series data from a DataFrame against dates.
+
+    Parameters:
+    - df: pandas DataFrame containing the data.
+    - date_column: Name of the column with date information.
+    - y1_column: Name of the column for primary y-axis data.
+    - y1_label: Label for y1 data series (used in legend).
+    - y1_color: Color for y1 data series.
+    - y1_linestyle: Linestyle for y1 data series.
+    - y1_axis_label: Label for primary y-axis.
+    - y2_column: (Optional) Name of the column for secondary y-axis data.
+    - y2_label: (Optional) Label for y2 data series (used in legend).
+    - y2_color: Color for y2 data series.
+    - y2_linestyle: Linestyle for y2 data series.
+    - y2_axis_label: (Optional) Label for secondary y-axis.
+    - title: (Optional) Plot title.
+    - legend_loc: (Optional) Location of legend.
+    - date_format: (Optional) Date format for parsing dates.
+    - secondary_y: (Optional) If True, uses a secondary y-axis for y2_column.
     """
-    dates = pd.to_datetime(dates, format='%d.%m.%Y')
+    # Convert the date column to datetime if not already
+    if not pd.api.types.is_datetime64_any_dtype(df[date_column]):
+        df[date_column] = pd.to_datetime(df[date_column], format=date_format)
 
-    # First Plot: Exiting Air Temperature and Outside Temperature
-    plt.figure(figsize=(10, 6))
-    plt.plot(dates, exiting_temps, label="Temp Air PAC (°C)", color='r')
-    plt.plot(dates, outside_temps, label="Temp d'Air (°C)", color='g', linestyle='--')
-    plt.xlabel("Date")
-    plt.ylabel("Temperature (°C)")
-    plt.title("Température de l'Air sortant du PAC et Température de l'Air pour la saison de chauffage")
-    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%b'))
-    plt.gca().xaxis.set_major_locator(mdates.MonthLocator())
-    plt.grid(True)
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
-
-    # Second Plot: Condensed Water with RH on Twin Axes
     fig, ax1 = plt.subplots(figsize=(10, 6))
-    ax1.plot(dates, condensed_water, label="Eau condensée (litres/h)", color='b')
-    ax1.set_xlabel("Date")
-    ax1.set_ylabel("Eau condensée (litres/heure)", color='b')
+
+    # Plot the first data series
+    ax1.plot(df[date_column], df[y1_column], label=y1_label, color=y1_color, linestyle=y1_linestyle)
+    if y1_axis_label:
+        ax1.set_ylabel(y1_axis_label, color=y1_color)
+        ax1.tick_params(axis='y', labelcolor=y1_color)
+    ax1.set_xlabel('Date')
     ax1.xaxis.set_major_formatter(mdates.DateFormatter('%b'))
     ax1.xaxis.set_major_locator(mdates.MonthLocator())
     ax1.grid(True)
 
-    # Create a second y-axis for RH
-    ax2 = ax1.twinx()
-    ax2.plot(dates, outside_rh, label="Humidité Relative (%)", color='orange', linestyle='--')
-    ax2.set_ylabel("Humidité Relative (%)", color='orange')
+    if y2_column is not None:
+        if secondary_y:
+            # Plot the second data series on a secondary y-axis
+            ax2 = ax1.twinx()
+            ax2.plot(df[date_column], df[y2_column], label=y2_label, color=y2_color, linestyle=y2_linestyle)
+            if y2_axis_label:
+                ax2.set_ylabel(y2_axis_label, color=y2_color)
+                ax2.tick_params(axis='y', labelcolor=y2_color)
+            # Combine legends
+            lines_1, labels_1 = ax1.get_legend_handles_labels()
+            lines_2, labels_2 = ax2.get_legend_handles_labels()
+            ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc=legend_loc)
+        else:
+            # Plot the second data series on the primary y-axis
+            ax1.plot(df[date_column], df[y2_column], label=y2_label, color=y2_color, linestyle=y2_linestyle)
+            # Update the legend
+            ax1.legend(loc=legend_loc)
+    else:
+        # Only one legend needed
+        ax1.legend(loc=legend_loc)
 
-    # Combine legends
-    lines_1, labels_1 = ax1.get_legend_handles_labels()
-    lines_2, labels_2 = ax2.get_legend_handles_labels()
-    ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc='upper left')
-
-    plt.title("Production d'eau condensée et Humidité Relative pour la saison de chauffage")
+    if title:
+        plt.title(title)
     plt.tight_layout()
     plt.show()
 
-    # Third Plot: Electricity Consumption and temp Air
-    fig, ax1 = plt.subplots(figsize=(10, 6))
-    ax1.plot(dates, electricity, label="Consommation Électrique (kWh)", color='b')
-    ax1.set_xlabel("Date")
-    ax1.set_ylabel("Consommation Électrique (kWh)", color='b')
-    ax1.xaxis.set_major_formatter(mdates.DateFormatter('%b'))
-    ax1.xaxis.set_major_locator(mdates.MonthLocator())
-    ax1.grid(True)
-
-    # Create a second y-axis for COP
-    ax2 = ax1.twinx()
-    ax2.plot(dates, outside_temps, label="Temp d'Air (°C)", color='y', linestyle='--')
-    ax2.set_ylabel("Temp d'Air (°C)", color='g')
-
-    # Combine legends
-    lines_1, labels_1 = ax1.get_legend_handles_labels()
-    lines_2, labels_2 = ax2.get_legend_handles_labels()
-    ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc='upper left')
-
-    plt.title("Consommation d'Electricité et Température d'Air pour la Saison de Chauffage")
-    plt.tight_layout()
-    plt.show()
-
-
-import matplotlib.pyplot as plt
-import numpy as np
 
 def plot_condensation_histogram(condensed_water_per_hour):
     """
@@ -383,18 +394,58 @@ def main():
         f"Consommation totale d'électricité pour la période de chauffage: {total_electricity_consumption:.0f} kWh"
     )
 
-    # Plot results
-    plot_results_with_rh(
-        df['Date'],
-        df['Temperature_After_Adjusted_Drop'],
-        df['Condensed_Water_Liters_per_hour'],
-        df['Temperature'],
-        df['RH'],
-        df['Electrical_Energy_Input_kWh'],
-        df['COP']
-    )
 
     plot_condensation_histogram(df['Condensed_Water_Liters_per_hour'])
+
+
+    plot_time_series(
+        df=df,
+        date_column='Date',
+        # y1_column='Temperature_After_Drop',
+        y1_column='Temperature_After_Adjusted_Drop',
+        y1_label="Temp Air PAC (°C)",
+        y1_color='r',
+        y1_axis_label="Température (°C)",
+        y2_column='Temperature',
+        y2_label="Température (°C)",
+        y2_color='g',
+        y2_linestyle='--',
+        # y2_axis_label="Température (°C)",
+        title="Température de l'Air sortant du PAC et Température de l'Air pour la saison de chauffage",
+        secondary_y=False  # New parameter
+    )
+
+    plot_time_series(
+        df=df,
+        date_column='Date',
+        y1_column='Condensed_Water_Liters_per_hour',
+        y1_label="Eau condensée (litres/h)",
+        y1_color='b',
+        y1_linestyle='-',
+        y1_axis_label="Eau condensée (litres/heure)",
+        y2_column='RH',
+        y2_label="Humidité Relative (%)",
+        y2_color='orange',
+        y2_linestyle='--',
+        y2_axis_label="Humidité Relative (%)",
+        title="Production d'eau condensée et Humidité Relative pour la saison de chauffage"
+    )
+
+    # plot_time_series(
+    #     df=df,
+    #     date_column='Date',
+    #     y1_column='Electrical_Energy_Input_kWh',
+    #     y1_label="Consommation Électrique (kWh)",
+    #     y1_color='b',
+    #     y1_linestyle='-',
+    #     y1_axis_label="Consommation Électrique (kWh)",
+    #     y2_column='Temperature',
+    #     y2_label="Temp d'Air (°C)",
+    #     y2_color='g',
+    #     y2_linestyle='--',
+    #     y2_axis_label="Température d'Air (°C)",
+    #     title="Consommation d'Électricité et Température d'Air pour la Saison de Chauffage"
+    # )
 
     plot_scatter_vs_temperature(
         df=df,
