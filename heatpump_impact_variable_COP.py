@@ -442,6 +442,23 @@ def main():
         y2_axis_label="Humidité Relative (%)",
         title="Production d'eau condensée et Humidité Relative pour la saison de chauffage"
     )
+    df['Heating Energy (kW)'] = df ['Heating_Energy_Demand_kWh']/24
+
+    plot_time_series(
+        df=df,
+        date_column='Date',
+        y1_column='Heating Energy (kW)',
+        y1_label="Energie Chauffage (kW)",
+        y1_color='b',
+        y1_linestyle='-',
+        y1_axis_label="Demande de Chauffage (kWh)",
+        y2_column='COP',
+        y2_label="COP",
+        y2_color='orange',
+        y2_linestyle='--',
+        y2_axis_label="COP",
+        title="Heating Energie and COP"
+    )
 
     plot_scatter_vs_temperature(
         df=df,
