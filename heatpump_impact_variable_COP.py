@@ -12,9 +12,12 @@ SPECIFIC_HEAT_CAPACITY_DRY_AIR = 1005    # J/kg·K
 SPECIFIC_HEAT_WATER_VAPOR = 1860         # J/kg·K
 LATENT_HEAT_VAPORIZATION = 2500e3        # J/kg
 OPERATING_HOURS_PER_DAY = 24
+METEO_DATA = 'data/Meteo_MSR_23-24.csv'
+COP_DATA = 'data/cop_vs_temperature.csv'
+#TOTAL_HEATING_ENERGY = 18000            #kWh   22-23
+TOTAL_HEATING_ENERGY = 19000            #kWh   23-24
 
 # Function Definitions
-
 def calculate_humidity_ratio(temperature, rh):
     """
     Calculate the humidity ratio (kg water/kg dry air) based on temperature and relative humidity.
@@ -246,7 +249,7 @@ def main():
     Main function to perform heat pump impact analysis and plot results.
     """
     # Read the temperature and RH data
-    df_meteo = pd.read_csv('data/Meteo_MSR.csv')
+    df_meteo = pd.read_csv(METEO_DATA)
     df = df_meteo.rename(columns={
         'Date': 'Date',
         'MONT-SUR-ROLLE - Humidité moy. (%)': 'RH',
@@ -254,7 +257,7 @@ def main():
     })
 
     # Read the COP vs. temperature data
-    cop_data = pd.read_csv('data/cop_vs_temperature.csv')
+    cop_data = pd.read_csv(COP_DATA)
 
     # Interpolate COP values (Assuming 'COP_35C' column for 35°C water flow)
     cop_interp_func = interp1d(
@@ -274,7 +277,7 @@ def main():
     df['Specific_Heat_Moist_Air'] = df['Humidity_Ratio'].apply(calculate_specific_heat_moist_air)
 
     # Total heating energy for the season (in kWh)
-    total_heating_energy_kwh = 19000  # Adjust based on your data
+    total_heating_energy_kwh = TOTAL_HEATING_ENERGY  # Adjust based on your data
 
     # Calculate the temperature difference for each day
     df['Temperature_Difference'] = DESIRED_INDOOR_TEMPERATURE - df['Temperature']
